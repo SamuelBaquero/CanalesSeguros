@@ -8,6 +8,7 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.util.Date;
 
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.x509.X509V1CertificateGenerator;
 
 import javax.crypto.*;
@@ -42,6 +43,7 @@ public class ClientePosicion {
 	 */
 	public static void main(String args[]){
 		try{
+			Security.addProvider(new BouncyCastleProvider());
 			//Inicializacion de las llaves.
 			KeyPairGenerator generator = KeyPairGenerator.getInstance(ALGA);
 			generator.initialize(1024);
@@ -62,8 +64,22 @@ public class ClientePosicion {
 			//CERCLNT
 			writer.println( CERTIFICADO );
 			//FLUJO DE BYTES DEL CERTIFICADO
-			X509Certificate cert = certificado();
+			//CREACION DEL CERTIFICADO
+			Date startDate = new Date (System.nanoTime());
+			Date expiryDate = new Date (System.nanoTime() + 999999999);
+			BigInteger serialNumber = new BigInteger("1909199426091995");
+			X509V1CertificateGenerator certGen = new X509V1CertificateGenerator();
+			X500Principal dnName = new X500Principal("CN=Test CA Certificate");
+			certGen.setSerialNumber(serialNumber);
+			certGen.setIssuerDN(dnName);
+			certGen.setNotBefore(startDate);
+			certGen.setNotAfter(expiryDate);
+			certGen.setSubjectDN(dnName);
+			certGen.setPublicKey(keypair.getPublic());
+			certGen.setSignatureAlgorithm("MD2withRSA");
+			X509Certificate cert  = certGen.generate(keypair.getPrivate(), "BC");
 			byte[] certb = cert.getEncoded();
+			//ENVIO DE INFORMACION
 			comunicacion.getOutputStream().write(certb);
 			comunicacion.getOutputStream().flush();
 			//CERSRV
@@ -90,22 +106,5 @@ public class ClientePosicion {
 				System.out.println("No se pudo cerrar la conexion." + e.getMessage());
 			}
 		}
-	}
-
-	public static X509Certificate certificado() throws CertificateEncodingException, InvalidKeyException, IllegalStateException, NoSuchProviderException, NoSuchAlgorithmException, SignatureException{
-		Date startDate = new Date (System.nanoTime());
-		Date expiryDate = new Date (System.nanoTime() + 999999999);
-		BigInteger serialNumber = new BigInteger("1909199426091995");
-		X509V1CertificateGenerator certGen = new X509V1CertificateGenerator();
-		X500Principal dnName = new X500Principal("CN=Test CA Certificate");
-		certGen.setSerialNumber(serialNumber);
-		certGen.setIssuerDN(dnName);
-		certGen.setNotBefore(startDate);
-		certGen.setNotAfter(expiryDate);
-		certGen.setSubjectDN(dnName);
-		certGen.setPublicKey(keypair.getPublic());
-		certGen.setSignatureAlgorithm(ALGA);
-		X509Certificate cert  = certGen.generate(keypair.getPrivate(), "BC");
-		return cert;
 	}
 }
