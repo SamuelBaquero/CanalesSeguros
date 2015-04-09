@@ -1,30 +1,17 @@
 package src;
 
 import java.io.*;
-import java.io.ObjectInputStream.GetField;
 import java.math.BigInteger;
 import java.net.Socket;
-import java.security.InvalidKeyException;
-import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.PublicKey;
 import java.security.Security;
-import java.security.SignatureException;
 import java.security.cert.Certificate;
-import java.security.cert.CertificateEncodingException;
-import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
-import java.security.spec.InvalidKeySpecException;
-import java.security.spec.X509EncodedKeySpec;
 import java.util.Date;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.jce.provider.X509CertParser;
-import org.bouncycastle.util.encoders.Base64;
 import org.bouncycastle.x509.X509V1CertificateGenerator;
 
 import javax.crypto.*;
@@ -88,6 +75,11 @@ public class ClientePosicion {
 	private static BufferedReader reader;
 
 	/**
+	 * Variables de soporte para transformacion de mensajes a Hexa.
+	 */
+	private static char[] HEX_CHARS = "0123456789abcdef".toCharArray();
+	
+	/**
 	 * Codigo.
 	 * @param args
 	 */
@@ -125,7 +117,7 @@ public class ClientePosicion {
 			generator.initialize(1024);
 			keypair = generator.generateKeyPair();
 			//Inicializacion de los sockets
-			comunicacion = new Socket("localhost", PUERTO);
+			comunicacion = new Socket(DIRSERV, PUERTO);
 			writer = new PrintWriter(comunicacion.getOutputStream(), true);
 			reader = new BufferedReader(new InputStreamReader(comunicacion.getInputStream()));
 		}catch(Exception e){
@@ -226,7 +218,14 @@ public class ClientePosicion {
 		try {
 			Cipher cip = Cipher.getInstance(ALGS);
 			cip.init(Cipher.ENCRYPT_MODE, sessionKey);
-			writer.println("ACT1:"+new String(cip.doFinal(posicion.getBytes())));
+			byte[] buf = cip.doFinal(posicion.getBytes());
+			char[] chars = new char[2 * buf.length];
+			for (int i = 0; i < buf.length; ++i)
+			{
+				chars[2 * i] = HEX_CHARS[(buf[i] & 0xF0) >>> 4];
+				chars[2 * i + 1] = HEX_CHARS[buf[i] & 0x0F];
+			}
+			writer.println("ACT1:"+new String(chars));
 		} catch (Exception e) {
 			System.out.println("Error cifrando y enviando la posicion: "+e.getMessage());
 		}
@@ -236,10 +235,24 @@ public class ClientePosicion {
 	 * Envia la posicion cifrada con un algoritmo de hash.
 	 */
 	private static void enviarHashPosicion(){
-		// Usar la llave Simetrica para la funcion de hash y luego cifrar con la publica del servidor.
 		try{
-			Cipher cip = Cipher.getInstance(ALGD);
-			
+			//Funcion de Hash "HmacSHA1" sobre la posicion.
+			Mac mac = Mac.getInstance(ALGD);
+			mac.init(sessionKey);
+			byte[] hpos = mac.doFinal(posicion.getBytes());
+			//Encriptado simetrico con la llave publica del servidor.
+			Cipher cip = Cipher.getInstance(ALGA);
+			cip.init(Cipher.ENCRYPT_MODE, certs.getPublicKey());
+			byte[] hposcif = cip.doFinal(hpos);
+			//Transformacion a hexa.
+			char[] chars = new char[2 * hposcif.length];
+			for (int i = 0; i < hposcif.length; ++i)
+			{
+				chars[2 * i] = HEX_CHARS[(hposcif[i] & 0xF0) >>> 4];
+				chars[2 * i + 1] = HEX_CHARS[hposcif[i] & 0x0F];
+			}
+			//Envio de informacion por el servidor.
+			writer.println("ACT2:"+new String(chars));
 		}catch(Exception e){
 			System.out.println("Error enviando el hash de la posicion: "+e.getMessage());
 		}
@@ -250,7 +263,11 @@ public class ClientePosicion {
 	 * OK si funciono, ERROR de lo contrario.
 	 */
 	private static void respuesta(){
-
+		try {
+			System.out.println(reader.readLine());
+		} catch (Exception e) {
+			System.out.println("Error en la respuesta final del servidor: " + e.getMessage());
+		}
 	}
 
 	/**
