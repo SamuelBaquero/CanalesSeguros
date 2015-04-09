@@ -54,7 +54,7 @@ public class ClientePosicion {
 	private static String ALGD = "HMACSHA1";
 	//Separador general de los mensajes.
 	private static String SG = ":";
-	
+
 	/**
 	 * Variables de seguridad.
 	 */
@@ -62,12 +62,21 @@ public class ClientePosicion {
 	private static KeyPair keypair;
 	//Certificado propio.
 	private static X509Certificate cert;
-	
+
 	//Certificado del servidor.
 	private static Certificate certs;
 	//Llave de sesion simetrica.
 	private static SecretKey sessionKey;
-	
+
+	/**
+	 * Variables de informacion.
+	 */
+	private static int gradInt = 41;
+	private static double gradDouble = 24.2028;
+	private static int minInt = 2;
+	private static double minDouble = 10.4418;
+	private static String posicion = gradInt+" "+gradDouble+","+minInt+" "+minDouble;
+
 	/**
 	 * Socket.
 	 */
@@ -92,11 +101,12 @@ public class ClientePosicion {
 		recibirCertificado();
 		//INIT, LLAVE SIMETRICA
 		init();
-		//ACT Usar la llave Simetrica o de sesion para codificar la posicion.
-
-		//ACT Usar la llave Simetrica para la funcion de hash y luego cifrar con la publica del servidor.
-
+		//ACT
+		enviarPosicion();
+		//ACT2
+		enviarHashPosicion();
 		//RTA:OK|ERROR
+		respuesta();
 		//CIERRE DE CONEXION CON EL SERVIDOR
 		cerrarConexion();
 	}
@@ -201,13 +211,48 @@ public class ClientePosicion {
 			Cipher cip = Cipher.getInstance(ALGA);
 			cip.init(Cipher.DECRYPT_MODE, keypair.getPrivate());
 			byte[] hexaMessage = cip.doFinal(DatatypeConverter.parseHexBinary(in[1]));
-			
+
 			sessionKey = new SecretKeySpec(hexaMessage, 0, hexaMessage.length, ALGS);
 		} catch (Exception e) {
 			System.out.println("Error en la obtencion de la llave simetrica del servidor: " + e.getMessage());
 		}
 	}
-	
+
+	/**
+	 * Envia la posicion cifrada con la llave de sesion.
+	 */
+	private static void enviarPosicion(){
+		// Usar la llave Simetrica o de sesion para codificar la posicion.
+		try {
+			Cipher cip = Cipher.getInstance(ALGS);
+			cip.init(Cipher.ENCRYPT_MODE, sessionKey);
+			writer.println("ACT1:"+new String(cip.doFinal(posicion.getBytes())));
+		} catch (Exception e) {
+			System.out.println("Error cifrando y enviando la posicion: "+e.getMessage());
+		}
+	}
+
+	/**
+	 * Envia la posicion cifrada con un algoritmo de hash.
+	 */
+	private static void enviarHashPosicion(){
+		// Usar la llave Simetrica para la funcion de hash y luego cifrar con la publica del servidor.
+		try{
+			Cipher cip = Cipher.getInstance(ALGD);
+			
+		}catch(Exception e){
+			System.out.println("Error enviando el hash de la posicion: "+e.getMessage());
+		}
+	}
+
+	/**
+	 * Recibe la respuesta final del servidor.
+	 * OK si funciono, ERROR de lo contrario.
+	 */
+	private static void respuesta(){
+
+	}
+
 	/**
 	 * Cierra la conexion con el socket de comunicacion.
 	 */
