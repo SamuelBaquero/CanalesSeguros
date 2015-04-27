@@ -20,11 +20,19 @@ import javax.security.auth.x500.X500Principal;
 import javax.xml.bind.DatatypeConverter;
 
 public class ClientePosicion {
+	
+	/**
+	 * Variables de medicion de indicadores.
+	 */
+	private static double iSession;
+	private static double iRepo;
+	private static int iFallo;
+	
 	/**
 	 * Variables de configuracion y comunicacion con el servidor..
 	 */
 	//Direccion de conexion con el servidor.
-	private static String DIRSERV = "infracomp.virtual.uniandes.edu.co";
+	private static String DIRSERV = "localhost";
 	//Puerto de conexion.
 	private static int PUERTO = 443;
 	//Mensaje inicial
@@ -41,7 +49,7 @@ public class ClientePosicion {
 	private static String ALGD = "HMACSHA1";
 	//Separador general de los mensajes.
 	private static String SG = ":";
-
+	
 	/**
 	 * Variables de seguridad.
 	 */
@@ -63,7 +71,7 @@ public class ClientePosicion {
 	private static int minInt = 2;
 	private static double minDouble = 10.4418;
 	private static String posicion = gradInt+" "+gradDouble+","+minInt+" "+minDouble;
-
+	
 	/**
 	 * Socket.
 	 */
@@ -84,6 +92,12 @@ public class ClientePosicion {
 	 * @param args
 	 */
 	public static void main(String args[]){
+		new ClientePosicion();
+	}
+	
+	public ClientePosicion(){
+		iRepo = System.currentTimeMillis();
+		iSession = iRepo;
 		inicializar();
 		//HOLA, INICIO, ALGORITMOS, ESTADO
 		inicio();
@@ -93,14 +107,17 @@ public class ClientePosicion {
 		recibirCertificado();
 		//INIT, LLAVE SIMETRICA
 		init();
+		iSession = System.currentTimeMillis()-iSession;
 		//ACT
 		enviarPosicion();
 		//ACT2
 		enviarHashPosicion();
 		//RTA:OK|ERROR
 		respuesta();
+		iRepo = System.currentTimeMillis()-iRepo;
 		//CIERRE DE CONEXION CON EL SERVIDOR
 		cerrarConexion();
+		generarReporte();
 	}
 
 	/**
@@ -264,7 +281,13 @@ public class ClientePosicion {
 	 */
 	private static void respuesta(){
 		try {
-			System.out.println(reader.readLine());
+			String r = reader.readLine();
+			System.out.println(r);
+			if(r.equals("OK")){
+				iFallo = 0;
+			}else if(r.equals("ERROR")){
+				iFallo = 1;
+			}
 		} catch (Exception e) {
 			System.out.println("Error en la respuesta final del servidor: " + e.getMessage());
 		}
@@ -280,6 +303,19 @@ public class ClientePosicion {
 			comunicacion.close();
 		}catch(Exception e){
 			System.out.println("Error cerrando la conexion con el servidor: " + e.getMessage());
+		}
+	}
+	
+	/**
+	 * Añade a un excel el reporte de tiempos de ejecucion.
+	 */
+	private static void generarReporte() {
+		try {
+			System.out.println(iSession);
+			System.out.println(iRepo);
+			System.out.println(iFallo);
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
 	}
 }
