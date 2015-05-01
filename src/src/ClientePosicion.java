@@ -24,68 +24,68 @@ public class ClientePosicion {
 	/**
 	 * Variables de medicion de indicadores.
 	 */
-	private static double iSession;
-	private static double iRepo;
-	private static int iFallo;
+	private double iSession;
+	private double iRepo;
+	private int iFallo;
 	
 	/**
 	 * Variables de configuracion y comunicacion con el servidor..
 	 */
 	//Direccion de conexion con el servidor.
-	private static String DIRSERV = "localhost";
+	private String DIRSERV = "192.168.0.6";
 	//Puerto de conexion.
-	private static int PUERTO = 443;
+	private int PUERTO = 8080;
 	//Mensaje inicial
-	private static String INIC = "HOLA";
+	private String INIC = "HOLA";
 	//Mensaje de aviso de envio de los algoritmos.
-	private static String ALG = "ALGORITMOS";
+	private String ALG = "ALGORITMOS";
 	//Mensaje de aviso de envio del certificado.
-	private static String CERTIFICADO = "CERCLNT";
+	private String CERTIFICADO = "CERCLNT";
 	//Algoritmo simetrico a usar.
-	private static String ALGS = "AES";
+	private String ALGS = "AES";
 	//Algoritmo asimetrico a usar.
-	private static String ALGA = "RSA";
+	private String ALGA = "RSA";
 	//Algoritmo HASH a usar.
-	private static String ALGD = "HMACSHA1";
+	private String ALGD = "HMACSHA1";
 	//Separador general de los mensajes.
-	private static String SG = ":";
+	private String SG = ":";
 	
 	/**
 	 * Variables de seguridad.
 	 */
 	//Par de llaves propias, publica y privada.
-	private static KeyPair keypair;
+	private KeyPair keypair;
 	//Certificado propio.
-	private static X509Certificate cert;
+	private X509Certificate cert;
 
 	//Certificado del servidor.
-	private static Certificate certs;
+	private Certificate certs;
 	//Llave de sesion simetrica.
-	private static SecretKey sessionKey;
+	private SecretKey sessionKey;
 
 	/**
 	 * Variables de informacion.
 	 */
-	private static int gradInt = 41;
-	private static double gradDouble = 24.2028;
-	private static int minInt = 2;
-	private static double minDouble = 10.4418;
-	private static String posicion = gradInt+" "+gradDouble+","+minInt+" "+minDouble;
+	private int gradInt = 41;
+	private double gradDouble = 24.2028;
+	private int minInt = 2;
+	private double minDouble = 10.4418;
+	private String posicion = gradInt+" "+gradDouble+","+minInt+" "+minDouble;
 	
 	/**
 	 * Socket.
 	 */
 	//Socket para la comunicacion.
-	private static Socket comunicacion;
+	private Socket comunicacion;
 	//Writer para escritura sobre el socket.
-	private static PrintWriter writer;
+	private PrintWriter writer;
 	//Reader para lectura sobre el socket.
-	private static BufferedReader reader;
+	private BufferedReader reader;
 
 	/**
 	 * Variables de soporte para transformacion de mensajes a Hexa.
 	 */
-	private static char[] HEX_CHARS = "0123456789abcdef".toCharArray();
+	private char[] HEX_CHARS = "0123456789abcdef".toCharArray();
 	
 	/**
 	 * Codigo.
@@ -126,7 +126,7 @@ public class ClientePosicion {
 	 * Genera las llaves simétricas propias.
 	 * Añade el proveedor de seguridad de la librería BouncyCastle.
 	 */
-	private static void inicializar(){
+	private void inicializar(){
 		try{
 			Security.addProvider(new BouncyCastleProvider());
 			//Inicializacion de las llaves.
@@ -139,25 +139,33 @@ public class ClientePosicion {
 			reader = new BufferedReader(new InputStreamReader(comunicacion.getInputStream()));
 		}catch(Exception e){
 			System.out.println("Error en la inicializacion del cliente: " + e.getMessage());
+			iFallo=1;
 		}
 	}
 
 	/**
 	 * Inicia la comunicacion con el servidor, envia los algoritmos a usar y recibe el estado del servidor.
 	 */
-	private static void inicio(){
+	private void inicio(){
 		try{
 			//HOLA
 			writer.println( INIC );
 			//INICIO
-			System.out.println(reader.readLine());
+			String r1 = reader.readLine();
+			if(!r1.equals("INICIO")){iFallo=1;};
 			//ALGORITMOS:ALGS:ALGA:ALGD
 			writer.println( ALG + SG + ALGS + SG + ALGA + SG + ALGD);
 			if(reader.ready()) System.out.println(reader.readLine());
 			//ESTADO:OK|ERROR
-			System.out.println(reader.readLine());
+			String r = reader.readLine();
+			if(r.equals("OK")){
+				iFallo = 0;
+			}else if(r.equals("ERROR")){
+				iFallo = 1;
+			}
 		}catch(Exception e){
 			System.out.println("Error en el envio de algoritmos: "+e.getMessage());
+			iFallo=1;
 		}
 
 	}
@@ -165,7 +173,7 @@ public class ClientePosicion {
 	/**
 	 * Crea y envia el certificado propio al servidor
 	 */
-	private static void enviarCertificado(){
+	private void enviarCertificado(){
 		//CERCLNT
 		writer.println( CERTIFICADO );
 		/*PREPARACION DEL CERTIFICADO*/
@@ -190,32 +198,35 @@ public class ClientePosicion {
 			comunicacion.getOutputStream().flush();
 		}catch(Exception e){
 			System.out.println("Error en la creacion y envio del certificado: " + e.getMessage());
+			iFallo=1;
 		}
 	}
 
 	/**
 	 * Recibe el certificado de identificacion del servidor.
 	 */
-	private static void recibirCertificado(){
+	private void recibirCertificado(){
 		try{
 			//CERSRV
-			System.out.println(reader.readLine());
+			String r = reader.readLine();
+			if(!r.equals("CERTSRV")){iFallo = 1;}
 			//FLUJO DE BYTES DEL CERTIFICADO
 			CertificateFactory cf = CertificateFactory.getInstance("X509");
 			certs = cf.generateCertificate(comunicacion.getInputStream());
 		}catch(Exception e){
 			System.out.println("Error recibiendo el certificado del servidor: "+e.getMessage());
+			iFallo=1;
 		}
 	}
 
 	/**
 	 * Recibe el mensaje de inicio de comunicacion, saca la llave de sesion y la guarda en una variable.
 	 */
-	private static void init(){
+	private void init(){
 		String[] in;
 		try {
 			in = reader.readLine().split(":");
-			System.out.println(in[0]);
+			if(!in[0].equals("INIT")){iFallo = 1;}
 			/*Para decodificar la llave toca pasarla a hexa y luego decodificarla con la privada propia*/
 			Cipher cip = Cipher.getInstance(ALGA);
 			cip.init(Cipher.DECRYPT_MODE, keypair.getPrivate());
@@ -224,13 +235,14 @@ public class ClientePosicion {
 			sessionKey = new SecretKeySpec(hexaMessage, 0, hexaMessage.length, ALGS);
 		} catch (Exception e) {
 			System.out.println("Error en la obtencion de la llave simetrica del servidor: " + e.getMessage());
+			iFallo=1;
 		}
 	}
 
 	/**
 	 * Envia la posicion cifrada con la llave de sesion.
 	 */
-	private static void enviarPosicion(){
+	private void enviarPosicion(){
 		// Usar la llave Simetrica o de sesion para codificar la posicion.
 		try {
 			Cipher cip = Cipher.getInstance(ALGS);
@@ -245,13 +257,14 @@ public class ClientePosicion {
 			writer.println("ACT1:"+new String(chars));
 		} catch (Exception e) {
 			System.out.println("Error cifrando y enviando la posicion: "+e.getMessage());
+			iFallo=1;
 		}
 	}
 
 	/**
 	 * Envia la posicion cifrada con un algoritmo de hash.
 	 */
-	private static void enviarHashPosicion(){
+	private void enviarHashPosicion(){
 		try{
 			//Funcion de Hash "HmacSHA1" sobre la posicion.
 			Mac mac = Mac.getInstance(ALGD);
@@ -272,6 +285,7 @@ public class ClientePosicion {
 			writer.println("ACT2:"+new String(chars));
 		}catch(Exception e){
 			System.out.println("Error enviando el hash de la posicion: "+e.getMessage());
+			iFallo=1;
 		}
 	}
 
@@ -279,10 +293,9 @@ public class ClientePosicion {
 	 * Recibe la respuesta final del servidor.
 	 * OK si funciono, ERROR de lo contrario.
 	 */
-	private static void respuesta(){
+	private void respuesta(){
 		try {
 			String r = reader.readLine();
-			System.out.println(r);
 			if(r.equals("OK")){
 				iFallo = 0;
 			}else if(r.equals("ERROR")){
@@ -290,26 +303,28 @@ public class ClientePosicion {
 			}
 		} catch (Exception e) {
 			System.out.println("Error en la respuesta final del servidor: " + e.getMessage());
+			iFallo=1;
 		}
 	}
 
 	/**
 	 * Cierra la conexion con el socket de comunicacion.
 	 */
-	private static void cerrarConexion(){
+	private void cerrarConexion(){
 		try{
 			writer.close();
 			reader.close();
 			comunicacion.close();
 		}catch(Exception e){
 			System.out.println("Error cerrando la conexion con el servidor: " + e.getMessage());
+			iFallo=1;
 		}
 	}
 	
 	/**
 	 * Añade a un excel el reporte de tiempos de ejecucion.
 	 */
-	private static void generarReporte() {
+	private void generarReporte() {
 		try {
 			System.out.println(iSession);
 			System.out.println(iRepo);

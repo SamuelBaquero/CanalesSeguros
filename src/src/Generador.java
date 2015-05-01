@@ -15,8 +15,8 @@ public class Generador {
 	public Generador(){
 		System.out.println("Inicio del generador");
 		Task work = new ClientTask();
-		int numberOfTasks = 100;
-		int gapBetTasks = 1000;
+		int numberOfTasks = 40;
+		int gapBetTasks = 500;
 		gen = new LoadGenerator("Cliente Posicion Test", numberOfTasks, work, gapBetTasks);
 		gen.generate();
 	}
